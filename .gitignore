@@ -105,3 +105,4 @@ venv.bak/
 
 .cache/
 *.html
+\.DS_Store
