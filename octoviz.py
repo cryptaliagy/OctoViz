@@ -79,65 +79,7 @@ def graph(line_data, bar_data, repository_name, frame, grouped, x_range=None, y_
 
     return [line_chart, bar_chart]
 
-def cli():
-    parser = argparse.ArgumentParser(description='A tool to visualize Github data')
-
-    parser.add_argument('-m', '--month', dest='frame', action='store_const', const='month', default='week', help='aggregate data by month (default: by week)')
-    cache_group = parser.add_mutually_exclusive_group()
-    flush_group = parser.add_mutually_exclusive_group()
-    url_group = parser.add_mutually_exclusive_group()
-    token_group = parser.add_mutually_exclusive_group()
-
-    cache_group.add_argument('-b', '--build-cache', dest='force_build_cache', action='store', nargs="?",
-        choices=['no-render'], default=False, const=True, help='Force build the cache, overriding any currently cached data. Add in no-render argument to build ' +
-            'cache without rendering')
-    cache_group.add_argument('--no-cache', dest='fetch_no_cache', action='store_true', help='Force fetch the data but do not write it to a local cache')
-
-    flush_group.add_argument('-f', '--flush', action='store', nargs='?', default=False, const=True,
-        choices=['all', 'cache', 'html'], help='Flushes the cache for the repositories specified if no choice is specified, otherwise flushes the specified option')
-    flush_group.add_argument('-rm', '--remove', action='store_true', help='Flushes all cached data after execution. Does not delete html files.')
-    
-    url_group.add_argument('-u', '--url', action='store', help='The url to use (if in a corporate environment)')
-    url_group.add_argument('-g', '--github', action='store_true', help='Force connect to Github\'s servers instead of any set by environment variable')
-
-    token_group.add_argument('-v', '--token-value', action='store', help='OAuth token to use (overrides environment-specified token)')
-    token_group.add_argument('-e', '--token-env-name', action='store', help='Specify the name of the environment variable to use for the token')
-    
-    parser.add_argument('-x', '--link-x-axis', dest='link_x', action='store_true', help='Link the x-axis of all generated graphs')
-    parser.add_argument('-y', '--link-y-axis', dest='link_y', action='store_true', help='Link the y-axis of all line graphs')
-    parser.add_argument('-n', '--name', action='store', help='Name of the output file')
-
-    parser.add_argument('--group-by', dest='group', choices=['created', 'closed'], default='closed', nargs='?', help='What metric to group the data by. Default is \'closed\'')
-    parser.add_argument('repos', metavar='repository', nargs='*', help='Repository to pull data from')
-
-    parser.add_argument('-p', '--percentiles', type=str, default='25,50,90', help="A comma delimited list of percentages to render a graph of")
-
-    parser.epilog = 'All files are stored under ~/.octoviz directory. If no output file name has been specified, OctoViz will override previous render'
-
-    args = parser.parse_args()
-
-    home_dir = str(Path.home())
-    octoviz_dir = lambda x="": '%s/.octoviz%s' % (home_dir, "/%s" % x if x else "")
-
-    if not os.path.exists(octoviz_dir()):
-        os.mkdir(octoviz_dir())
-
-    if len(args.repos) == 0 and not args.flush in {'html', 'all', 'cache'}:
-        parser.error('Must specify repositories or one of the --flush-all flag!\n')
-        sys.exit(1)
-
-    if args.flush:
-        if args.flush in {'cache', 'all'}:
-            shutil.rmtree(octoviz_dir('cache'), ignore_errors=True)
-        if args.flush in {'html', 'all'}:
-            shutil.rmtree(octoviz_dir('html'), ignore_errors=True)
-        if args.flush is True:
-            for repo in args.repos:
-                if os.path.exists(octoviz_dir('cache/%s.json' % repo)):
-                    os.remove(octoviz_dir('cache/%s.json' % repo))
-        sys.exit(0)  # Exit after flushing
-
-
+def run(args, octoviz_dir):
     if args.token_value:
         token = args.token_value
     elif args.token_env_name:
@@ -225,6 +167,70 @@ def cli():
 
     if not args.force_build_cache == 'no-render':
         show(gridplot(chart_data))
+
+def flush(args, octoviz_dir):
+    if args.flush_all:
+        if args.flush_all in {'cache', 'all'}:
+            shutil.rmtree(octoviz_dir('cache'), ignore_errors=True)
+        if args.flush_all in {'html', 'all'}:
+            shutil.rmtree(octoviz_dir('html'), ignore_errors=True)
+    else:
+        for repo in args.repos:
+            if os.path.exists(octoviz_dir('cache/%s.json' % repo)):
+                os.remove(octoviz_dir('cache/%s.json' % repo))
+
+def cli():
+    home_dir = str(Path.home())
+    octoviz_dir = lambda x="": '%s/.octoviz%s' % (home_dir, "/%s" % x if x else "")
+
+    main_parser = argparse.ArgumentParser(description='A tool to visualize Github data')
+    sub_parsers = main_parser.add_subparsers(help="")
+    flush_parser = sub_parsers.add_parser('flush', help="Flush the cached or created files", description='Sub-tool to flush cached and rendered files')
+    parser = sub_parsers.add_parser('run', help="Run the OctoViz", description='Creates graphs of Pull Request lifecycle data')
+
+    flush_parser.add_argument('-f', '--flush-all', action='store', nargs='?', default=False, const='all',
+        choices=['cache', 'html', 'all'], help='Flushes all cached data and html files by default, or one of them if specified')
+    flush_parser.add_argument('repos', metavar='repository', nargs='*', default=[], help="Repositories to flush from the cache")
+
+    parser.add_argument('-m', '--month', dest='frame', action='store_const', const='month', default='week', help='aggregate data by month (default: by week)')
+    cache_group = parser.add_mutually_exclusive_group()
+    url_group = parser.add_mutually_exclusive_group()
+    token_group = parser.add_mutually_exclusive_group()
+
+    cache_group.add_argument('-c', '--build-cache', dest='force_build_cache', action='store', nargs="?",
+        choices=['no-render'], default=False, const=True, help='Force build the cache, overriding any currently cached data. Add in no-render argument to build ' +
+            'cache without rendering')
+    cache_group.add_argument('--no-cache', dest='fetch_no_cache', action='store_true', help='Force fetch the data but do not write it to a local cache')
+
+    parser.add_argument('-rm', '--remove', action='store_true', help='Flushes all cached data after execution. Does not delete html files.')
+    
+    url_group.add_argument('-u', '--url', action='store', help='The url to use (if in a corporate environment)')
+    url_group.add_argument('-g', '--github', action='store_true', help='Force connect to Github\'s servers instead of any set by environment variable')
+
+    token_group.add_argument('-v', '--token-value', action='store', help='OAuth token to use (overrides environment-specified token)')
+    token_group.add_argument('-e', '--token-env-name', action='store', help='Specify the name of the environment variable to use for the token')
+    
+    parser.add_argument('-x', '--link-x-axis', dest='link_x', action='store_true', help='Link the x-axis of all generated graphs')
+    parser.add_argument('-y', '--link-y-axis', dest='link_y', action='store_true', help='Link the y-axis of all line graphs')
+    parser.add_argument('-n', '--name', action='store', help='Name of the output file')
+
+    parser.add_argument('--group-by', dest='group', choices=['created', 'closed'], default='closed', nargs='?', help='What metric to group the data by. Default is \'closed\'')
+    parser.add_argument('repos', metavar='repository', nargs='+', default=[], help='Repository to pull data from')
+
+    parser.add_argument('-p', '--percentiles', type=str, default='25,50,90', help="A comma delimited list of percentiles to render data for")
+
+    parser.epilog = 'All files are stored under ~/.octoviz directory. If no output file name has been specified, OctoViz will override previous render'
+
+    parser.set_defaults(func=lambda args: run(args, octoviz_dir))
+    flush_parser.set_defaults(func=lambda args: flush(args, octoviz_dir))
+
+    args = main_parser.parse_args()
+
+    if not os.path.exists(octoviz_dir()):
+        os.mkdir(octoviz_dir())
+
+    args.func(args)
+
 
 
 if __name__ == "__main__":
