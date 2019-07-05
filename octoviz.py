@@ -110,6 +110,8 @@ def cli():
     parser.add_argument('--group-by', dest='group', choices=['created', 'closed'], default='closed', nargs='?', help='What metric to group the data by. Default is \'closed\'')
     parser.add_argument('repos', metavar='repository', nargs='*', help='Repository to pull data from')
 
+    parser.add_argument('-p', '--percentiles', type=str, default='25,50,90', help="A comma delimited list of percentages to render a graph of")
+
     parser.epilog = 'All files are stored under ~/.octoviz directory. If no output file name has been specified, OctoViz will override previous render'
 
     args = parser.parse_args()
@@ -150,12 +152,14 @@ def cli():
     else:
         url = os.getenv('GITHUB_URL')
 
+    stat_percentiles = sorted([int(p) for p in args.percentiles.split(',')])
+
     pull_data = []
     chart_data = []
     x_axis = None
     y_axis = None
     frame_data = lambda func, iterable: list(map(func, iterable))
-    stats = lambda group: {'25th': group.quantile(0.25), '50th': group.median(), '90th': group.quantile(0.9), 'count': group.count()}
+    stats = lambda group: {'count': group.count(), **{'%dth' % d: group.quantile(d/100) for d in stat_percentiles}}
 
     build_cache_flags = args.fetch_no_cache or args.force_build_cache
 
