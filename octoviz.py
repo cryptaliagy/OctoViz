@@ -8,7 +8,7 @@ from bokeh.palettes import Category10 as palette
 from functools import reduce
 import pandas as pd
 
-def get_raw_pull_data(organization, repository, token, url=None):
+def make_github_client(token, url=None):
     try:
         if url:
             client = github3.enterprise_login(token=token, url=url)
@@ -22,7 +22,12 @@ def get_raw_pull_data(organization, repository, token, url=None):
         sys.stderr.write("Check the token or url for login\n\n")
         sys.exit(1)
 
-    repo = client.repository(organization, repository)
+def get_raw_pull_data(client, organization, repository):
+    try:
+        repo = client.repository(organization, repository)
+    except:
+        sys.stderr.write('Error trying to fetch repo %s/%s, skipping...' % (organization, repository))
+        return None
     pull_requests = repo.pull_requests(state='closed')
 
     result = list(map(lambda x: x.as_dict(), pull_requests))
@@ -102,6 +107,8 @@ def run(args, octoviz_dir):
         url = None
     else:
         url = os.getenv('GITHUB_URL')
+        
+    client = make_github_client(token, url)
 
     stat_percentiles = sorted([int(p) for p in args.percentiles.split(',')])
 
@@ -134,14 +141,16 @@ def run(args, octoviz_dir):
             if not os.path.exists(octoviz_dir('cache/%s' % org)):
                 os.mkdir(octoviz_dir('cache/%s' % org))
 
-            pull_data = get_raw_pull_data(org, repo, token, url)
+            pull_data = get_raw_pull_data(client, org, repo)
+            if pull_data is None:
+                continue
 
             
             if not args.fetch_no_cache:
                 with open(octoviz_dir('cache/%s.json' % repository), "w") as f:
                     json.dump(pull_data, f)
                 
-                if args.force_build_cache == 'no-render':
+                if args.no_render:
                     continue
 
         # Read from cache files if they exist and not force-rebuild
@@ -174,7 +183,7 @@ def run(args, octoviz_dir):
     if args.remove:
         shutil.rmtree(octoviz_dir('cache'), ignore_errors=True)
 
-    if not args.force_build_cache == 'no-render':
+    if not args.no_render:
         show(gridplot(chart_data))
 
 def flush(args, octoviz_dir):
@@ -206,12 +215,8 @@ def cli():
     url_group = parser.add_mutually_exclusive_group()
     token_group = parser.add_mutually_exclusive_group()
 
-    cache_group.add_argument('-c', '--build-cache', dest='force_build_cache', action='store', nargs="?",
-        choices=['no-render'], default=False, const=True, help='Force build the cache, overriding any currently cached data. Add in no-render argument to build ' +
-            'cache without rendering')
+    cache_group.add_argument('-b', '--build-cache', dest='force_build_cache', action='store_true', help='Force build the cache, overriding any currently cached data.')
     cache_group.add_argument('--no-cache', dest='fetch_no_cache', action='store_true', help='Force fetch the data but do not write it to a local cache')
-
-    parser.add_argument('-rm', '--remove', action='store_true', help='Flushes all cached data after execution. Does not delete html files.')
     
     url_group.add_argument('-u', '--url', action='store', help='The url to use (if in a corporate environment)')
     url_group.add_argument('-g', '--github', action='store_true', help='Force connect to Github\'s servers instead of any set by environment variable')
@@ -219,6 +224,8 @@ def cli():
     token_group.add_argument('-v', '--token-value', action='store', help='OAuth token to use (overrides environment-specified token)')
     token_group.add_argument('-e', '--token-env-name', action='store', help='Specify the name of the environment variable to use for the token')
     
+    parser.add_argument('--no-render', action='store_true', help='Prevent OctoViz from generating HTML file')
+    parser.add_argument('-c', '--cleanup', action='store_true', help='Flushes all cached data after execution. Does not delete html files.')
     parser.add_argument('-x', '--link-x-axis', dest='link_x', action='store_true', help='Link the x-axis of all generated graphs')
     parser.add_argument('-y', '--link-y-axis', dest='link_y', action='store_true', help='Link the y-axis of all line graphs')
     parser.add_argument('-n', '--name', action='store', help='Name of the output file')
