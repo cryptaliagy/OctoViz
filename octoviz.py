@@ -180,7 +180,7 @@ def run(args, octoviz_dir):
             y_axis = chart_data[-1][0].y_range
 
     
-    if args.remove:
+    if args.cleanup:
         shutil.rmtree(octoviz_dir('cache'), ignore_errors=True)
 
     if not args.no_render:
