@@ -28,7 +28,7 @@ def data_to_graph_params(data, width, name_map):
     line_result = {}
     bar_result = {}
     for param in data:
-        match = re.match('([0-9][0-9])th', param)
+        match = re.match('(1?[0-9]?[0-9])th', param)
         x = []
         y = []
         for key in sorted(data[param].keys()):
