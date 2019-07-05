@@ -34,18 +34,19 @@ def get_raw_pull_data(client, organization, repository):
     return result
 
 
-def data_to_graph_params(data, width, name_map):
+def data_to_graph_params(data, width, name_map, skip_last=False):
     def colors():
         yield from itertools.cycle(palette[10])
         
     color = colors()
     line_result = {}
     bar_result = {}
+    end_index = -1 if skip_last else None
     for param in data:
         match = re.match('(1?[0-9]?[0-9])th', param)
         x = []
         y = []
-        for key in sorted(data[param].keys()):
+        for key in sorted(data[param].keys())[:end_index]:
             x.append(key)
             y.append(data[param][key])
         if match:
@@ -171,7 +172,7 @@ def run(args, octoviz_dir):
         
         bar_width = (arrow.now().ceil(args.frame) - arrow.now().floor(args.frame)).total_seconds() * 800
         data = frame['lifetime'].groupby(frame[args.group]).apply(stats).unstack().to_dict()
-        line, bar = data_to_graph_params(data, bar_width, {'count': 'PRs Completed'})
+        line, bar = data_to_graph_params(data, bar_width, {'count': 'PRs Completed'}, args.complete)
         chart_data.append(graph(line, bar, repo, args.frame, args.group, x_axis, y_axis))
 
         if args.link_x:
@@ -229,6 +230,7 @@ def cli():
     parser.add_argument('-x', '--link-x-axis', dest='link_x', action='store_true', help='Link the x-axis of all generated graphs')
     parser.add_argument('-y', '--link-y-axis', dest='link_y', action='store_true', help='Link the y-axis of all line graphs')
     parser.add_argument('-n', '--name', action='store', help='Name of the output file')
+    parser.add_argument('--complete', action='store_true', help="Display only complete data (does not display current week/month's data)")
 
     parser.add_argument('--group-by', dest='group', choices=['created', 'closed'], default='closed', nargs='?', help='What metric to group the data by. Default is \'closed\'')
     parser.add_argument('repos', metavar='repository', nargs='+', default=[], help='Repository to pull data from')
