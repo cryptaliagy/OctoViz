@@ -21,12 +21,14 @@ def make_github_client(token, url=None):
         sys.stderr.write("\nError performing login to Github!\n")
         sys.stderr.write("Check the token or url for login\n\n")
         sys.exit(1)
+    
+    return client
 
 def get_raw_pull_data(client, organization, repository):
     try:
         repo = client.repository(organization, repository)
-    except:
-        sys.stderr.write('Error trying to fetch repo %s/%s, skipping...' % (organization, repository))
+    except Exception as e:
+        sys.stderr.write('Error trying to fetch repo %s/%s, skipping...\n' % (organization, repository))
         return None
     pull_requests = repo.pull_requests(state='closed')
 
@@ -180,11 +182,10 @@ def run(args, octoviz_dir):
         if args.link_y:
             y_axis = chart_data[-1][0].y_range
 
-    
     if args.cleanup:
         shutil.rmtree(octoviz_dir('cache'), ignore_errors=True)
 
-    if not args.no_render:
+    if not args.no_render and len(chart_data) > 0:
         show(gridplot(chart_data))
 
 def flush(args, octoviz_dir):
