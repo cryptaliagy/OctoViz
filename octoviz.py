@@ -9,10 +9,19 @@ from functools import reduce
 import pandas as pd
 
 def get_raw_pull_data(organization, repository, token, url=None):
-    if url:
-        client = github3.enterprise_login(token=token, url=url)
-    else:
-        client = github3.login(token=token)
+    try:
+        if url:
+            client = github3.enterprise_login(token=token, url=url)
+        else:
+            client = github3.login(token=token)
+
+        if client is None:
+            raise(Exception())
+    except:
+        sys.stderr.write("\nError performing login to Github!\n")
+        sys.stderr.write("Check the token or url for login\n\n")
+        sys.exit(1)
+
     repo = client.repository(organization, repository)
     pull_requests = repo.pull_requests(state='closed')
 
