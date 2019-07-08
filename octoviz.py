@@ -214,7 +214,7 @@ def data_to_graph_params(data, width, name_map, skip_last=False):
     return line_result, bar_result
 
 
-def graph(line_data, bar_data, repository_name, frame, grouped, x_range=None, y_range=None):
+def graph(line_data, bar_data, repository_name, frame, grouped, x_range=None, y_range=None, bar_y_range=None):
     line_chart = figure(
         title="Pull Request Data for %s, Aggregated by %s %s" % (repository_name.capitalize(), frame.capitalize(), grouped.capitalize()),
         x_axis_label="Date", 
@@ -230,6 +230,9 @@ def graph(line_data, bar_data, repository_name, frame, grouped, x_range=None, y_
         x_axis_label='Date', 
         x_axis_type="datetime", 
         x_range=line_chart.x_range)
+    
+    if bar_y_range is not None:
+        bar_chart.y_range = bar_y_range
     
     for key in line_data.keys():
         line_chart.line(line_width=2, **line_data[key])
@@ -259,14 +262,14 @@ def run(args):
     if args.no_limit:
         rate_limit = None
     elif args.limit_by_weeks:
-        if args.month:
+        if args.frame == 'month':
             sys.stderr.write('Cannot limit by weeks when aggregating by month!\n')
             sys.exit(1)
         rate_limit = ('weeks', -args.limit_by_weeks+modifier)
     elif args.limit_by_months:
         rate_limit = ('months', -args.limit_by_months+modifier)
     else:
-        rate_limit = ('months', -12)
+        rate_limit = ('months', -12+modifier)
 
     stat_percentiles = sorted([int(p) for p in args.percentiles.split(',')])
 
@@ -274,6 +277,7 @@ def run(args):
     chart_data = []
     x_axis = None
     y_axis = None
+    num_prs_y_axis = None
     frame_data = lambda func, iterable: list(map(func, iterable))
     stats = lambda group: {'count': group.count(), **{'%dth' % d: group.quantile(d/100) for d in stat_percentiles}}
 
@@ -324,14 +328,23 @@ def run(args):
         )
         
         bar_width = (arrow.now().ceil(args.frame) - arrow.now().floor(args.frame)).total_seconds() * 800
-        data = frame['lifetime'].groupby(frame[args.group]).apply(stats).unstack().to_dict()
+        data = frame['lifetime'].groupby(frame[args.group]).apply(stats).unstack()
+
+        if rate_limit and rate_limit[0] == 'months' and args.frame == 'week':
+            rate_limit = (rate_limit[0], rate_limit[1]*4)  # Convert months to weeks if rate limit is in months but aggregation is in weeks
+        
+        if rate_limit:
+            data = data.tail(abs(rate_limit[1]))
+        data = data.to_dict()
+
         line, bar = data_to_graph_params(data, bar_width, {'count': 'PRs Completed'}, args.complete)
-        chart_data.append(graph(line, bar, repo, args.frame, args.group, x_axis, y_axis))
+        chart_data.append(graph(line, bar, repo, args.frame, args.group, x_axis, y_axis, num_prs_y_axis))
 
         if args.link_x:
             x_axis = chart_data[-1][0].x_range
         if args.link_y:
             y_axis = chart_data[-1][0].y_range
+            num_prs_y_axis = chart_data[-1][1].y_range
 
     if args.cleanup:
         shutil.rmtree(octoviz_dir('cache'), ignore_errors=True)

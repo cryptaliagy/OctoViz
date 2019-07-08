@@ -11,7 +11,7 @@ setup(
         'pandas'
 
     ],
-    version='1.0',
+    version='1.0.1',
     entry_points='''
         [console_scripts]
         octoviz=octoviz:cli
