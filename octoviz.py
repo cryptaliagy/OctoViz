@@ -50,6 +50,7 @@ def configuration():
     parser.add_argument('-m', '--month', dest='frame', action='store_const', const='month', default='week', help='aggregate data by month (default: by week)')
     cache_group = parser.add_mutually_exclusive_group()
     limit_group = parser.add_mutually_exclusive_group()
+    aggre_group = parser.add_mutually_exclusive_group()
 
     cache_group.add_argument('-b', '--build-cache', dest='force_build_cache', action='store_true', help='Force build the cache, overriding any currently cached data.')
     cache_group.add_argument('--no-cache', dest='fetch_no_cache', action='store_true', help='Force fetch the data but do not write it to a local cache')
@@ -58,6 +59,7 @@ def configuration():
     limit_group.add_argument('--limit-by-weeks', metavar='N', action='store', type=int, help='Limit fetching to only PRs that have been created since N months ago (default: 12 months)')
     limit_group.add_argument('--limit-by-months', metavar='N', action='store', type=int, help='Limit fetching to only PRs that have been created since N months ago. (default: 12 months)')
     
+    parser.add_argument('--full', action='store_true', help='Grabs the full Pull Request data for more thorough data processing (grouping by additions/deletions/total). WARNING: this will take a long time')
     parser.add_argument('--no-render', action='store_true', help='Prevent OctoViz from generating HTML file')
     parser.add_argument('-c', '--cleanup', action='store_true', help='Flushes all cached data after execution. Does not delete html files.')
     parser.add_argument('-x', '--link-x-axis', dest='link_x', action='store_true', help='Link the x-axis of all generated graphs')
@@ -66,7 +68,9 @@ def configuration():
     parser.add_argument('--complete', action='store_true', help="Display only complete data (does not display current week/month's data)")
     parser.add_argument('-p', '--percentiles', type=str, default='25,50,90', help="A comma delimited list of percentiles to render data for")
 
-    parser.add_argument('--group-by', dest='group', choices=['created', 'closed'], default='closed', nargs='?', help='What metric to group the data by. Default is \'closed\'')
+    aggre_group.add_argument('--group-by', dest='group', choices=['created', 'closed'], default='closed', nargs='?', help='What metric to group the data by. Default is \'closed\'.')
+    aggre_group.add_argument('--analyze-by', dest='analyze', choices=['additions', 'deletions', 'total'], help='Line change metric to group data by. Requires that data be scrapped or cached in full, will error otherwise')
+    parser.add_argument('--round-to', type=int, default=20, help='The number of lines to round to. Can only be used in conjunction with --analyze-by. Default is 20')
     parser.add_argument('repos', metavar='repository', nargs='+', default=[], help='Repository to pull data from')
 
     parser.epilog = 'All files are stored under ~/.octoviz directory. If no output file name has been specified, OctoViz will override previous render'
@@ -144,7 +148,7 @@ def create_directory(dir):
         exists.append(di)
 
 
-def get_raw_pull_data(organization, repository, rate_limit):
+def get_raw_pull_data(organization, repository, rate_limit, full):
     if rate_limit:
         frame = rate_limit[0][:-1]
         shift = {rate_limit[0]: rate_limit[1]}
@@ -172,9 +176,13 @@ def get_raw_pull_data(organization, repository, rate_limit):
             break
 
         try:
-            pull_dict = pull_request.as_dict()
-        except:
+            if full:
+                pull_dict = repo.pull_request(pull_request.number).as_dict()  # Get the full data
+            else:
+                pull_dict = pull_request.as_dict()
+        except Exception as e:
             continue
+        
         
         result.append(pull_dict)
 
@@ -214,22 +222,26 @@ def data_to_graph_params(data, width, name_map, skip_last=False):
     return line_result, bar_result
 
 
-def graph(line_data, bar_data, repository_name, frame, grouped, x_range=None, y_range=None, bar_y_range=None):
+def graph(line_data, bar_data, repository_name, frame, grouped, x_range=None, y_range=None, bar_y_range=None, is_datetime=True):
+    axis_type = 'datetime' if is_datetime else 'linear'
+    time = frame if is_datetime else 'lines changed -'
+
     line_chart = figure(
-        title="Pull Request Data for %s, Aggregated by %s %s" % (repository_name.capitalize(), frame.capitalize(), grouped.capitalize()),
-        x_axis_label="Date", 
-        y_axis_label='Time to close PR (days)', 
-        x_axis_type="datetime")
+        title="Pull Request Data for %s, Aggregated by %s %s" % (repository_name.capitalize(), time.capitalize(), grouped.capitalize()),
+        x_axis_label="Date" if is_datetime else "Number of lines", 
+        y_axis_label='Time to close PR (days)',
+        x_axis_type=axis_type)
+
     if x_range is not None:
         line_chart.x_range = x_range
     if y_range is not None:
         line_chart.y_range = y_range
 
     bar_chart = figure(
-        title="Pull Request Data for %s, Aggregated by %s %s" % (repository_name.capitalize(), frame.capitalize(), grouped.capitalize()), 
-        x_axis_label='Date', 
-        x_axis_type="datetime", 
-        x_range=line_chart.x_range)
+        title="Pull Request Data for %s, Aggregated by %s %s" % (repository_name.capitalize(), time.capitalize(), grouped.capitalize()), 
+        x_axis_label='Date' if is_datetime else 'Number of Lines',
+        x_range=line_chart.x_range,
+        x_axis_type=axis_type)
     
     if bar_y_range is not None:
         bar_chart.y_range = bar_y_range
@@ -299,14 +311,17 @@ def run(args):
         if build_cache_flags or not os.path.exists(octoviz_dir('cache/%s/%s.json' % (org, repo))):
             create_directory('cache/%s' % org)
 
-            pull_data = get_raw_pull_data(org, repo, rate_limit)
+            pull_data = get_raw_pull_data(org, repo, rate_limit, args.full)
             if pull_data is None:
                 continue
 
-            
+            full = args.full
+
+            dump = {'full': full, 'data':pull_data}
+
             if not args.fetch_no_cache:
                 with open(octoviz_dir('cache/%s.json' % repository), "w") as f:
-                    json.dump(pull_data, f)
+                    json.dump(dump, f)
                 
                 if args.no_render:
                     continue
@@ -314,31 +329,58 @@ def run(args):
         # Read from cache files if they exist and not force-rebuild
         else:
             with open(octoviz_dir('cache/%s.json' % repository), "r") as f:
-                pull_data = json.load(f)
-        
+                dump = json.load(f)
+                pull_data = dump['data']
+                full = dump['full']
+
+        if args.analyze:
+            if not full:
+                sys.stderr.write('When trying to use line change analyze tool, full-data scrapping is required. Rebuild the cache with --full flag and try again')
+                sys.exit(1)
+            else:
+                group = args.analyze
+        else:
+            group = args.group
+
+        rounded = lambda x: round(x/args.round_to) * args.round_to
+        is_datetime = args.analyze is None
         # Build pandas frame
-        frame = pd.DataFrame(
-            {
+        dataframe_dict = {
                 'pull number': frame_data(lambda x: x['number'], pull_data),
                 'created': frame_data(lambda x: arrow.get(x['created_at']).floor(args.frame).datetime, pull_data),
                 'closed': frame_data(lambda x: arrow.get(x['closed_at']).floor(args.frame).datetime, pull_data),
-                'user': frame_data(lambda x: x['user']['login'], pull_data),
                 'lifetime': frame_data(lambda x: (arrow.get(x['closed_at']) - arrow.get(x['created_at'])).total_seconds()/3600/24, pull_data)
             }
-        )
+        if args.analyze and full:
+            dataframe_dict.update({
+                'additions': frame_data(lambda x: rounded(x['additions']), pull_data),
+                'deletions': frame_data(lambda x: rounded(x['deletions']), pull_data),
+                'total': frame_data(lambda x: rounded(x['additions'] + x['deletions']), pull_data),
+            })
         
-        bar_width = (arrow.now().ceil(args.frame) - arrow.now().floor(args.frame)).total_seconds() * 800
-        data = frame['lifetime'].groupby(frame[args.group]).apply(stats).unstack()
+        frame = pd.DataFrame(dataframe_dict)
 
-        if rate_limit and rate_limit[0] == 'months' and args.frame == 'week':
-            rate_limit = (rate_limit[0], rate_limit[1]*4)  # Convert months to weeks if rate limit is in months but aggregation is in weeks
+        if rate_limit: 
+            if rate_limit[0] == 'months' and args.frame == 'week':
+                rate_limit = (rate_limit[0], rate_limit[1]*4)  # Convert months to weeks if rate limit is in months but aggregation is in weeks
+            time = rate_limit[0][:-1]
+            shift = {rate_limit[0]: rate_limit[1]}
+            limited = arrow.now().shift(**shift).floor(time)
+            data = frame[frame['created'] > limited.datetime]
+        else:
+            data = frame
+
+        if is_datetime:
+            bar_width = (arrow.now().ceil(args.frame) - arrow.now().floor(args.frame)).total_seconds() * 800
+            data = data['lifetime'].groupby(frame[group])
+        else:
+            bar_width = 10
+            data = data[data['total'] < (args.round_to * 50)]['lifetime'].groupby(frame[group])
         
-        if rate_limit:
-            data = data.tail(abs(rate_limit[1]))
-        data = data.to_dict()
+        data = data.apply(stats).unstack().to_dict()
 
         line, bar = data_to_graph_params(data, bar_width, {'count': 'PRs Completed'}, args.complete)
-        chart_data.append(graph(line, bar, repo, args.frame, args.group, x_axis, y_axis, num_prs_y_axis))
+        chart_data.append(graph(line, bar, repo, args.frame, group, x_axis, y_axis, num_prs_y_axis, is_datetime))
 
         if args.link_x:
             x_axis = chart_data[-1][0].x_range
