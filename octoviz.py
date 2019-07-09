@@ -178,12 +178,8 @@ def get_raw_pull_data(organization, repository, rate_limit, full):
         try:
             repo = client.repository(organization, repository)
             break  # Found the repo, stop searching
-        except github3.exceptions.NotFoundError as e:
-            continue  # Try the next client
-        except ConnectionError as e:
-            continue  # client cannot be reached
         except Exception as e:
-            continue
+            continue  # Try the next client
     
     if repo is None:
         return None  # Can't find it under any of the profiles, return None
@@ -384,7 +380,7 @@ def run(args):
                 pull_data = dump['data']
                 full = dump['full']
 
-        rounded = lambda x: round(x/args.round_to) * args.round_to
+        rounded = lambda x: x - (x % args.round_to)+args.round_to/2  # Groups up by segments of size round_to, the addition of round_to/2 is to cause the bar graph to be placed at the right spot on the x-axis
         frame_data = lambda func: list(map(func, pull_data))
         is_datetime = args.analyze is None
 
@@ -457,7 +453,7 @@ def run(args):
             bar_width = (arrow.now().ceil(args.frame) - arrow.now().floor(args.frame)).total_seconds() * 800
             data = data['lifetime'].groupby(data[group])
         else:
-            bar_width = 10
+            bar_width = args.round_to
             get_grouped_data = lambda data: data[data[group] < (args.round_to * 50)]['lifetime'].groupby(data[group])
             data = get_grouped_data(data)
             if compare_data is not None:
