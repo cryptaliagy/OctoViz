@@ -359,7 +359,7 @@ def run(args):
 
             pull_data = get_raw_pull_data(org, repo, rate_limit, args.full)
             if pull_data is None:
-                sys.stderr.write('Could not find repository %s\n, skipping...' % repository)
+                sys.stderr.write('Could not find repository %s, skipping...\n' % repository)
                 continue
 
             full = args.full
