@@ -380,7 +380,7 @@ def run(args):
                 pull_data = dump['data']
                 full = dump['full']
 
-        rounded = lambda x: x - (x % args.round_to)+args.round_to/2  # Groups up by segments of size round_to, the addition of round_to/2 is to cause the bar graph to be placed at the right spot on the x-axis
+        rounded = lambda x: x - (x % args.round_to)
         frame_data = lambda func: list(map(func, pull_data))
         is_datetime = args.analyze is None
 
@@ -464,6 +464,10 @@ def run(args):
 
         get_graph_params = lambda data: data_to_graph_params(data, bar_width, {'count': 'PRs Completed'}, args.complete)
         line, bar = get_graph_params(data)
+    
+        if compare_data:
+            bar['count']['x'] = list(map(lambda x: x + args.round_to/2, bar['count']['x']))  # Offset the bar x location for line analysis graphs
+        
         chart_data.append(graph(line, bar, repo, args.frame, group, x_axis, y_axis, num_prs_y_axis, is_datetime, data_custom_title))
 
         if args.link_x:
@@ -474,6 +478,7 @@ def run(args):
 
         if compare_data:
             line, bar = get_graph_params(compare_data)
+            bar['count']['x'] = list(map(lambda x: x + args.round_to/2, bar['count']['x']))
             chart_data.append(graph(line, bar, repo, args.frame, group, x_axis, y_axis, num_prs_y_axis, is_datetime, compare_data_custom_title))
 
 
