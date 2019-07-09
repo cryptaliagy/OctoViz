@@ -21,19 +21,23 @@ def configuration():
 
     flush_parser = sub_parsers.add_parser('flush', help='Flush the cached or created files', description='Sub-tool to flush cached and rendered files')
     parser = sub_parsers.add_parser('run', help='Run the OctoViz', description='Creates graphs of Pull Request lifecycle data')
-    profile_parser = sub_parsers.add_parser('profile', help='Create, edit, or save OctoViz Github profiles', description='Create, edit, or save OctoViz Github profiles')
+    profile_parser = sub_parsers.add_parser('profile', help='Create, edit, or save OctoViz Github profiles', 
+        description='Create, edit, or save OctoViz Github profiles')
 
     profile_sub_parsers = profile_parser.add_subparsers(help="")
 
     profile_create_parser = profile_sub_parsers.add_parser('create', help='Create a new OctoViz profile',
         description='''Create a new OctoViz profile!\n
         OctoViz profiles determine the Github server and the API token that will be used when OctoViz is run''')
-    profile_delete_parser = profile_sub_parsers.add_parser('delete', help='Delete OctoViz profiles', description='''Delete OctoViz profiles by specifying the names of the profiles to delete''')
-    profile_update_parser = profile_sub_parsers.add_parser('update', help='Update an OctoViz profile', description='Update information on an OctoViz profile')
+    profile_delete_parser = profile_sub_parsers.add_parser('delete', help='Delete OctoViz profiles', 
+        description='''Delete OctoViz profiles by specifying the names of the profiles to delete''')
+    profile_update_parser = profile_sub_parsers.add_parser('update', help='Update an OctoViz profile',
+        description='Update information on an OctoViz profile')
 
     profile_update_parser.add_argument('name', metavar='NAME', help='The name of the profile to update')
     profile_update_parser.add_argument('-t', '--token', help='The new token to use for the profile')
-    profile_update_parser.add_argument('-u', '--url', nargs='?', default=False, const=None, help='The new URL to connect with. Specify no argument if switching to public Github server')
+    profile_update_parser.add_argument('-u', '--url', nargs='?', default=False, const=None,
+        help='The new URL to connect with. Specify no argument if switching to public Github server')
 
     profile_delete_parser.add_argument('profile_names', metavar='NAME', nargs='+', help='The name of the profile(s) to be deleted')
 
@@ -51,15 +55,20 @@ def configuration():
     cache_group = parser.add_mutually_exclusive_group()
     limit_group = parser.add_mutually_exclusive_group()
     aggre_group = parser.add_mutually_exclusive_group()
+    compr_group = parser.add_mutually_exclusive_group()
 
-    cache_group.add_argument('-b', '--build-cache', dest='force_build_cache', action='store_true', help='Force build the cache, overriding any currently cached data.')
+    cache_group.add_argument('-b', '--build-cache', dest='force_build_cache', action='store_true', 
+        help='Force build the cache, overriding any currently cached data.')
     cache_group.add_argument('--no-cache', dest='fetch_no_cache', action='store_true', help='Force fetch the data but do not write it to a local cache')
 
     limit_group.add_argument('--no-limit', action='store_true', help='Retrieve all PR data from the repository. (default: 12 months)')
-    limit_group.add_argument('--limit-by-weeks', metavar='N', action='store', type=int, help='Limit fetching to only PRs that have been created since N months ago (default: 12 months)')
-    limit_group.add_argument('--limit-by-months', metavar='N', action='store', type=int, help='Limit fetching to only PRs that have been created since N months ago. (default: 12 months)')
+    limit_group.add_argument('--limit-by-weeks', metavar='N', action='store', type=int, 
+        help='Limit fetching to only PRs that have been created since N months ago (default: 12 months)')
+    limit_group.add_argument('--limit-by-months', metavar='N', action='store', type=int, 
+        help='Limit fetching to only PRs that have been created since N months ago. (default: 12 months)')
     
-    parser.add_argument('--full', action='store_true', help='Grabs the full Pull Request data for more thorough data processing (grouping by additions/deletions/total). WARNING: this will take a long time')
+    parser.add_argument('--full', action='store_true', 
+        help='Grabs the full Pull Request data for more thorough data processing (grouping by additions/deletions/total). WARNING: this will take a long time')
     parser.add_argument('--no-render', action='store_true', help='Prevent OctoViz from generating HTML file')
     parser.add_argument('-c', '--cleanup', action='store_true', help='Flushes all cached data after execution. Does not delete html files.')
     parser.add_argument('-x', '--link-x-axis', dest='link_x', action='store_true', help='Link the x-axis of all generated graphs')
@@ -68,9 +77,18 @@ def configuration():
     parser.add_argument('--complete', action='store_true', help="Display only complete data (does not display current week/month's data)")
     parser.add_argument('-p', '--percentiles', type=str, default='25,50,90', help="A comma delimited list of percentiles to render data for")
 
-    aggre_group.add_argument('--group-by', dest='group', choices=['created', 'closed'], default='closed', nargs='?', help='What metric to group the data by. Default is \'closed\'.')
-    aggre_group.add_argument('--analyze-by', dest='analyze', choices=['additions', 'deletions', 'total'], help='Line change metric to group data by. Requires that data be scrapped or cached in full, will error otherwise')
-    parser.add_argument('--round-to', type=int, default=20, help='The number of lines to round to. Can only be used in conjunction with --analyze-by. Default is 20')
+    aggre_group.add_argument('--group-by', dest='group', choices=['created', 'closed'], 
+        default='closed', nargs='?', help='What metric to group the data by. Default is \'closed\'.')
+    aggre_group.add_argument('--analyze-by', dest='analyze', choices=['additions', 'deletions', 'total'], 
+        help='Line change metric to group data by. Requires that data be scrapped or cached in full, will error otherwise')
+    compr_group.add_argument('--compare-current', dest='compare_current', choices=['week', 'month', 'quarter', 'year'], 
+        help='''Render two sets of graphs for each repository comparing the current selected time period to the one before it. 
+        Can only be used in conjuction with --analyze-by.''')
+    compr_group.add_argument('--compare-last', dest='compare_last', choices=['week', 'month', 'quarter', 'year'],
+        help='''Render two sets of graphs for each repository comparing the previous selected time period to the one before it.
+        Can only be used in conjuction with --analyze-by.''')
+    parser.add_argument('--round-to', type=int, default=20, 
+        help='The number of lines to round to. Can only be used in conjunction with --analyze-by. Default is 20')
     parser.add_argument('repos', metavar='repository', nargs='+', default=[], help='Repository to pull data from')
 
     parser.epilog = 'All files are stored under ~/.octoviz directory. If no output file name has been specified, OctoViz will override previous render'
@@ -162,9 +180,10 @@ def get_raw_pull_data(organization, repository, rate_limit, full):
             break  # Found the repo, stop searching
         except github3.exceptions.NotFoundError as e:
             continue  # Try the next client
+        except ConnectionError as e:
+            continue  # client cannot be reached
         except Exception as e:
-            sys.stderr.write('Error trying to fetch repo %s/%s, skipping...\n' % (organization, repository))
-            return None
+            continue
     
     if repo is None:
         return None  # Can't find it under any of the profiles, return None
@@ -222,12 +241,15 @@ def data_to_graph_params(data, width, name_map, skip_last=False):
     return line_result, bar_result
 
 
-def graph(line_data, bar_data, repository_name, frame, grouped, x_range=None, y_range=None, bar_y_range=None, is_datetime=True):
+def graph(line_data, bar_data, repository_name, frame, grouped, x_range=None, y_range=None, bar_y_range=None, is_datetime=True, custom_title = ""):
     axis_type = 'datetime' if is_datetime else 'linear'
     time = frame if is_datetime else 'lines changed -'
-
+    if custom_title:
+        title = custom_title
+    else:
+        title = "Pull Request Data for %s, Aggregated by %s %s" % (repository_name.capitalize(), time.capitalize(), grouped.capitalize())
     line_chart = figure(
-        title="Pull Request Data for %s, Aggregated by %s %s" % (repository_name.capitalize(), time.capitalize(), grouped.capitalize()),
+        title=title,
         x_axis_label="Date" if is_datetime else "Number of lines", 
         y_axis_label='Time to close PR (days)',
         x_axis_type=axis_type)
@@ -238,7 +260,7 @@ def graph(line_data, bar_data, repository_name, frame, grouped, x_range=None, y_
         line_chart.y_range = y_range
 
     bar_chart = figure(
-        title="Pull Request Data for %s, Aggregated by %s %s" % (repository_name.capitalize(), time.capitalize(), grouped.capitalize()), 
+        title=title, 
         x_axis_label='Date' if is_datetime else 'Number of Lines',
         x_range=line_chart.x_range,
         x_axis_type=axis_type)
@@ -257,43 +279,71 @@ def graph(line_data, bar_data, repository_name, frame, grouped, x_range=None, y_
     return [line_chart, bar_chart]
 
 
-def run(args):
-    profiles = map(lambda x: load_profile(x), get_all_profiles())
-
-    for profile in profiles:
-        try:
-            clients.append(make_github_client(profile))
-        except Exception:
-            pass  # Ignore the faulty profile but continue execution
-    
+def get_rate_limit(args):
     if args.complete:
         modifier = -1
     else:
         modifier = 0
-
+    
     if args.no_limit:
-        rate_limit = None
+        return None
+    elif args.compare_current:
+        time_frame = args.compare_current + 's'
+        limit_factor = -2  # Current + previous
+    elif args.compare_last:
+        time_frame = args.compare_last + 's'
+        limit_factor = -3  # Current + last 2 previous, filter later
     elif args.limit_by_weeks:
         if args.frame == 'month':
             sys.stderr.write('Cannot limit by weeks when aggregating by month!\n')
             sys.exit(1)
-        rate_limit = ('weeks', -args.limit_by_weeks+modifier)
+        time_frame = 'weeks'
+        limit_factor = -args.limit_by_weeks+modifier
     elif args.limit_by_months:
-        rate_limit = ('months', -args.limit_by_months+modifier)
+        time_frame = 'months'
+        limit_factor = -args.limit_by_months+modifier
+        if args.frame == 'week':
+            limit_factor *= 4
     else:
-        rate_limit = ('months', -12+modifier)
+        time_frame = 'months'
+        limit_factor = -12+modifier
 
-    stat_percentiles = sorted([int(p) for p in args.percentiles.split(',')])
+    return (time_frame, limit_factor)
+
+def clients_from_profiles():
+    profiles = map(lambda x: load_profile(x), get_all_profiles())
+    for profile in profiles:
+        try:
+            clients.append(make_github_client(profile))  # Add to the global space client list for shared access
+        except Exception:
+            sys.stderr.write('Error connecting to client from profile %s, skipping...\n' % profile['name'])
+    
+def custom_percentiles(args):
+    return sorted([int(p) for p in args.percentiles.split(',')])
+
+
+def run(args):
+    clients_from_profiles()
+    
+    modifier = 0 if args.complete else -1
+
+    rate_limit = get_rate_limit(args)
+
+    stat_percentiles = custom_percentiles(args)
 
     pull_data = []
     chart_data = []
     x_axis = None
     y_axis = None
     num_prs_y_axis = None
-    frame_data = lambda func, iterable: list(map(func, iterable))
     stats = lambda group: {'count': group.count(), **{'%dth' % d: group.quantile(d/100) for d in stat_percentiles}}
 
     build_cache_flags = args.fetch_no_cache or args.force_build_cache
+
+    if args.analyze:
+        group = args.analyze
+    else:
+        group = args.group
 
     if args.name:
         file_name = octoviz_dir('html/%s.html' % args.name[0])
@@ -313,6 +363,7 @@ def run(args):
 
             pull_data = get_raw_pull_data(org, repo, rate_limit, args.full)
             if pull_data is None:
+                sys.stderr.write('Could not find repository %s\n, skipping...' % repository)
                 continue
 
             full = args.full
@@ -333,60 +384,102 @@ def run(args):
                 pull_data = dump['data']
                 full = dump['full']
 
-        if args.analyze:
-            if not full:
-                sys.stderr.write('When trying to use line change analyze tool, full-data scrapping is required. Rebuild the cache with --full flag and try again')
-                sys.exit(1)
-            else:
-                group = args.analyze
-        else:
-            group = args.group
-
         rounded = lambda x: round(x/args.round_to) * args.round_to
+        frame_data = lambda func: list(map(func, pull_data))
         is_datetime = args.analyze is None
+
+        if args.analyze and not full:
+            sys.stderr.write('When trying to use line change analyze tool, full-data scrapping is required. Rebuild the cache with --full flag and try again')
+            sys.exit(1)
+        
+        # Optimizing by only doing one of these per request
+        if group == 'closed':
+            framed_data = frame_data(lambda x: arrow.get(x['closed_at']).floor(args.frame).datetime)
+        elif group == 'additions':
+            framed_data = frame_data(lambda x: rounded(x['additions']))
+        elif group == 'deletions':
+            framed_data = frame_data(lambda x: rounded(x['deletions']))
+        elif group == 'total':
+            framed_data = frame_data(lambda x: rounded(x['additions'] + x['deletions']))
+        else:  # Default to fall back to
+            group = 'closed'
+            framed_data = frame_data(lambda x: arrow.get(x['closed_at']).floor(args.frame).datetime)
+
         # Build pandas frame
         dataframe_dict = {
-                'pull number': frame_data(lambda x: x['number'], pull_data),
-                'created': frame_data(lambda x: arrow.get(x['created_at']).floor(args.frame).datetime, pull_data),
-                'closed': frame_data(lambda x: arrow.get(x['closed_at']).floor(args.frame).datetime, pull_data),
-                'lifetime': frame_data(lambda x: (arrow.get(x['closed_at']) - arrow.get(x['created_at'])).total_seconds()/3600/24, pull_data)
-            }
-        if args.analyze and full:
-            dataframe_dict.update({
-                'additions': frame_data(lambda x: rounded(x['additions']), pull_data),
-                'deletions': frame_data(lambda x: rounded(x['deletions']), pull_data),
-                'total': frame_data(lambda x: rounded(x['additions'] + x['deletions']), pull_data),
-            })
+            'pull number': frame_data(lambda x: x['number']),
+            'lifetime': frame_data(lambda x: (arrow.get(x['closed_at']) - arrow.get(x['created_at'])).total_seconds()/3600/24),
+            'created': frame_data(lambda x: arrow.get(x['created_at']).floor(args.frame).datetime),  # Necessary to rate-limit data
+            group: framed_data
+        }
         
         frame = pd.DataFrame(dataframe_dict)
 
-        if rate_limit: 
-            if rate_limit[0] == 'months' and args.frame == 'week':
-                rate_limit = (rate_limit[0], rate_limit[1]*4)  # Convert months to weeks if rate limit is in months but aggregation is in weeks
+        compare_data = None
+        data = None
+        data_custom_title = None
+        compare_data_custom_title = None
+
+        if rate_limit:
             time = rate_limit[0][:-1]
-            shift = {rate_limit[0]: rate_limit[1]}
-            limited = arrow.now().shift(**shift).floor(time)
-            data = frame[frame['created'] > limited.datetime]
+            if args.compare_current:
+                recent_start = arrow.utcnow().floor(time).datetime
+                previous_start = arrow.utcnow().shift(**{rate_limit[0]:-1}).floor(time).datetime
+                data = frame[frame['created'] >= recent_start]
+                compare_data = frame[frame['created'] >= previous_start]
+                compare_data = compare_data[compare_data['created'] < recent_start]
+                data_custom_title = "PR Life for %s PRs Created in %s of %s, By Lines %s" % (repo, time.capitalize(), arrow.get(recent_start).format('MMM DD'), group)
+                compare_data_custom_title = \
+                    "PR Life for %s PRs Created in %s of %s, By Lines %s" % (repo, time.capitalize(), arrow.get(previous_start).format('MMM DD'), group)
+            elif args.compare_last:
+                current_start = arrow.utcnow().floor(time).datetime
+                recent_start = arrow.utcnow().shift(**{rate_limit[0]:-1}).floor(time).datetime
+                previous_start = arrow.utcnow().shift(**{rate_limit[0]:-2}).floor(time).datetime
+                data = frame[frame['created'] < current_start]
+                data = data[data['created'] >= recent_start]
+                compare_data = frame[frame['created'] >= previous_start]
+                compare_data = compare_data[compare_data['created'] < recent_start]
+                data_custom_title = "PR Life for %s PRs Created in %s of %s, By Lines %s" % (repo, time.capitalize(), arrow.get(recent_start).format('MMM DD'), group)
+                compare_data_custom_title = \
+                    "PR Life for %s PRs Created in %s of %s, By Lines %s" % (repo, time.capitalize(), arrow.get(previous_start).format('MMM DD'), group)
+            else:
+                if args.limit_by_months and args.frame == 'week':
+                    shift_time = rate_limit[1] * 4
+                else:
+                    shift_time = rate_limit[1]
+                shift = {rate_limit[0]: shift_time}
+                limited = arrow.utcnow().shift(**shift).floor(time)
+                data = frame[frame['created'] >= limited.datetime]
         else:
             data = frame
 
         if is_datetime:
             bar_width = (arrow.now().ceil(args.frame) - arrow.now().floor(args.frame)).total_seconds() * 800
-            data = data['lifetime'].groupby(frame[group])
+            data = data['lifetime'].groupby(data[group])
         else:
             bar_width = 10
-            data = data[data['total'] < (args.round_to * 50)]['lifetime'].groupby(frame[group])
+            get_grouped_data = lambda data: data[data[group] < (args.round_to * 50)]['lifetime'].groupby(data[group])
+            data = get_grouped_data(data)
+            if compare_data is not None:
+                compare_data = get_grouped_data(compare_data)
+                compare_data = compare_data.apply(stats).unstack().to_dict()
         
         data = data.apply(stats).unstack().to_dict()
 
-        line, bar = data_to_graph_params(data, bar_width, {'count': 'PRs Completed'}, args.complete)
-        chart_data.append(graph(line, bar, repo, args.frame, group, x_axis, y_axis, num_prs_y_axis, is_datetime))
+        get_graph_params = lambda data: data_to_graph_params(data, bar_width, {'count': 'PRs Completed'}, args.complete)
+        line, bar = get_graph_params(data)
+        chart_data.append(graph(line, bar, repo, args.frame, group, x_axis, y_axis, num_prs_y_axis, is_datetime, data_custom_title))
 
         if args.link_x:
             x_axis = chart_data[-1][0].x_range
         if args.link_y:
             y_axis = chart_data[-1][0].y_range
             num_prs_y_axis = chart_data[-1][1].y_range
+
+        if compare_data:
+            line, bar = get_graph_params(compare_data)
+            chart_data.append(graph(line, bar, repo, args.frame, group, x_axis, y_axis, num_prs_y_axis, is_datetime, compare_data_custom_title))
+
 
     if args.cleanup:
         shutil.rmtree(octoviz_dir('cache'), ignore_errors=True)
