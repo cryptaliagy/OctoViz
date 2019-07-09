@@ -70,7 +70,7 @@ def configuration():
     parser.add_argument('--full', action='store_true', 
         help='Grabs the full Pull Request data for more thorough data processing (grouping by additions/deletions/total). WARNING: this will take a long time')
     parser.add_argument('--no-render', action='store_true', help='Prevent OctoViz from generating HTML file')
-    parser.add_argument('-c', '--cleanup', action='store_true', help='Flushes all cached data after execution. Does not delete html files.')
+    parser.add_argument('--cleanup', action='store_true', help='Flushes all cached data after execution. Does not delete html files.')
     parser.add_argument('-x', '--link-x-axis', dest='link_x', action='store_true', help='Link the x-axis of all generated graphs')
     parser.add_argument('-y', '--link-y-axis', dest='link_y', action='store_true', help='Link the y-axis of all line graphs')
     parser.add_argument('-n', '--name', action='store', help='Name of the output file')
