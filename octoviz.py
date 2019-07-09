@@ -266,6 +266,7 @@ def graph(line_data, bar_data, repository_name, frame, grouped, x_range=None, y_
     
     for key in line_data.keys():
         line_chart.line(line_width=2, **line_data[key])
+        line_chart.circle(size=5, **line_data[key])
     
     for key in bar_data.keys():
         bar_chart.vbar(**bar_data[key])
@@ -411,6 +412,10 @@ def run(args):
         
         frame = pd.DataFrame(dataframe_dict)
 
+        if frame.empty:
+            sys.stderr.write('No data to use! Try increasing the rate limit\n')
+            sys.exit(1)
+
         compare_data = None
         data = None
         data_custom_title = None
@@ -446,6 +451,12 @@ def run(args):
                 shift = {rate_limit[0]: shift_time}
                 limited = arrow.utcnow().shift(**shift).floor(time)
                 data = frame[frame['created'] >= limited.datetime]
+            if data.empty:
+                sys.stderr.write('No data to show!\n')
+                sys.exit(1)
+            if compare_data is not None and compare_data.empty:
+                sys.stderr.write('No data to show!\n')
+                sys.exit(1)
         else:
             data = frame
 
