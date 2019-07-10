@@ -21,6 +21,7 @@ Windows support is currently experimental but presumed to be complete.
         1. [Basic Commands & Cache Management](#basic-commands-&-cache-management)
         2. [Rate Limiting](#rate-limiting)
         3. [Saving & Customizing Your Graphs](#saving-&-customizing-your-graphs)
+        4. [Putting It All Together – Combined Examples](#putting-it-all-together-–-combined-examples)
 2. [Quick Reference Guide](#quick-reference-guide)
 
 # *OctoViz Tour*
@@ -196,7 +197,26 @@ octoviz run -p 20,40,60,80 org_name/repo_name
 You may include as many lines as are necessary for you and your team. Keep in mind as well that by clicking on the line in the legend, you will toggle the visibility for that line. This may be useful when wanting to hone in on one specific percentile without having to re-render the graph.
 
 
+### *Putting it all together – Combined Examples*
 
+Say you have an organization named my_org and repositories first_repo and second_repo and you wanted to:
+
+See the data for PRs since the creation of first_repo, grouped by the month the PRs were opened, ignoring the current month, and save that to a file called 'first_repo_monthly_history.html'
+
+```
+octoviz run --no-limit -m --group-by created --complete -n first_repo_monthly_history my_org/first_repo
+```
+
+Look at the data for the last six months of first_repo and second_repo, without overriding the currently cached data, making sure that the graphs will always be showing the same time span
+
+```
+octoviz run --limit-by-months 6 --no-cache -x my_org/first_repo my_org/second_repo
+```
+
+
+
+
+------------------------
 
 
 # Quick Reference Guide
