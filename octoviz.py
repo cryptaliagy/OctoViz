@@ -6,12 +6,12 @@ from bokeh.layouts import gridplot, row
 from bokeh.palettes import Category10 as palette
 from functools import reduce
 import pandas as pd
-            
-token = os.getenv('GITHUB_API_TOKEN')
-url = os.getenv('GITHUB_URL')
 
-def get_raw_pull_data(organization, repository):
-    client = github3.enterprise_login(token=token, url=url)
+def get_raw_pull_data(organization, repository, url=None):
+    if url:
+        client = github3.enterprise_login(token=token, url=url)
+    else:
+        client = github3.login(token=token)
     repo = client.repository(organization, repository)
     pull_requests = repo.pull_requests(state='closed')
 
@@ -89,10 +89,22 @@ if __name__ == "__main__":
     parser.add_argument('-rm', '--remove', action='store_true', help='remove cached data after execution')
     parser.add_argument('-x', '--link-x-axis', dest="link_x", action='store_true', help='Link the x-axis of all generated graphs')
     parser.add_argument('-y', '--link-y-axis', dest="link_y", action='store_true', help='Link the y-axis of all line graphs')
+    parser.add_argument('-u', '--url', action='store', nargs=1, help="The url to use (if in a corporate environment)", default=[None])
+    parser.add_argument('-t', '--token', action='store', nargs=1, help="OAuth token to use (overrides environment-specified token)", default=[None])
     parser.add_argument('repos', metavar='repository', nargs="+", help="the repositories to pull data from")
 
     args = parser.parse_args()
 
+    if args.token[0]:
+        token = args.token[0]
+    else:
+        token = os.getenv('GITHUB_API_TOKEN')
+    
+    if args.url[0]:
+        url = args.url[0]
+    else:
+        url = os.getenv('GITHUB_URL')
+    
     pull_data = []
     chart_data = []
     x_axis = None
@@ -110,7 +122,7 @@ if __name__ == "__main__":
             if not os.path.exists('.cache/%s' % org):
                 os.mkdir('.cache/%s' % org)
 
-            pull_data = get_raw_pull_data(org, repo)
+            pull_data = get_raw_pull_data(org, repo, url)
 
             
             if not args.fetch_no_cache:
@@ -147,5 +159,4 @@ if __name__ == "__main__":
         shutil.rmtree('.cache', ignore_errors=True)
     
     show(gridplot(chart_data))
-
     
