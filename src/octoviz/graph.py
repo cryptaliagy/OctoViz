@@ -71,6 +71,9 @@ def graph(line_data, bar_data, repository_name, frame, grouped, x_range=None, y_
 
     bar_tooltip = [('Pull Requests', '@top')]
 
+    if not is_datetime:
+        bar_tooltip.insert(0, ('Lines', '@lines'))
+
     bar_chart = figure(
         title=title, 
         x_axis_label='Date' if is_datetime else 'Number of Lines',
@@ -80,8 +83,9 @@ def graph(line_data, bar_data, repository_name, frame, grouped, x_range=None, y_
     
     if bar_y_range is not None:
         bar_chart.y_range = bar_y_range
-    
+    lines = []
     for key in line_data.keys():
+        
         data_dict = dict(
             x=line_data[key]['x'],
             y=line_data[key]['y'],
@@ -91,13 +95,18 @@ def graph(line_data, bar_data, repository_name, frame, grouped, x_range=None, y_
             data_dict['date'] = line_data[key]['date']
         else:
             data_dict['lines'] = line_data[key]['lines']
+            lines = line_data[key]['lines']
 
         source = ColumnDataSource(data=data_dict)
         line_chart.line('x', 'y', line_width=2, source=source, legend=line_data[key]['legend'], line_color=line_data[key]['color'])
         line_chart.circle('x', 'y', size=5, source=source, legend=line_data[key]['legend'], color=line_data[key]['color'])
     
     for key in bar_data.keys():
-        bar_chart.vbar(**bar_data[key])
+        data_dict = dict(x=bar_data[key]['x'], top=bar_data[key]['top'])
+        if not is_datetime:
+            data_dict['lines'] = lines
+        source = ColumnDataSource(data=data_dict)
+        bar_chart.vbar('x', bar_data[key]['width'], 'top', source=source, fill_color=bar_data[key]['fill_color'])
     
     line_chart.legend.click_policy = 'hide'
 

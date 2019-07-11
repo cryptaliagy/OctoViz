@@ -208,7 +208,7 @@ def run(args):
         get_graph_params = lambda data: data_to_graph_params(data, bar_width, {'count': 'PRs Completed'}, is_datetime, args.round_to, args.complete)
         line, bar = get_graph_params(data)
     
-        if compare_data:
+        if not is_datetime:
             bar['count']['x'] = list(map(lambda x: x + args.round_to/2, bar['count']['x']))  # Offset the bar x location for line analysis graphs
         
         chart_data.append(graph(line, bar, repo, args.frame, group, x_axis, y_axis, num_prs_y_axis, is_datetime, data_custom_title))
