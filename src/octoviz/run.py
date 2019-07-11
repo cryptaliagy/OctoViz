@@ -205,7 +205,7 @@ def run(args):
         
         data = data.apply(stats).unstack().to_dict()
 
-        get_graph_params = lambda data: data_to_graph_params(data, bar_width, {'count': 'PRs Completed'}, args.complete)
+        get_graph_params = lambda data: data_to_graph_params(data, bar_width, {'count': 'PRs Completed'}, is_datetime, args.round_to, args.complete)
         line, bar = get_graph_params(data)
     
         if compare_data:
