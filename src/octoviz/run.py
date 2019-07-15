@@ -71,7 +71,7 @@ def run(args):
         group = args.group
 
     if args.name:
-        file_name = octoviz_dir('html/%s.html' % args.name[0])
+        file_name = octoviz_dir('html/%s.html' % args.name)
     else:
         file_name = octoviz_dir('html/octoviz.html')
     
